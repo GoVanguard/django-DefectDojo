@@ -120,6 +120,10 @@ class Widget(object):
         return
 
     @abc.abstractmethod
+    def get_pdf(self, request):
+        return
+
+    @abc.abstractmethod
     def get_asciidoc(self):
         return
 
@@ -137,6 +141,9 @@ class PageBreak(Widget):
 
     def get_html(self):
         return mark_safe('<hr title="Page Break" class="report-page-break"/>')
+
+    def get_pdf(self):
+        return mark_safe('<hr title="Page Break" class="report-page-break"/>'
 
     def get_asciidoc(self):
         return mark_safe('<br/><<<<br/>')
@@ -163,6 +170,9 @@ class ReportOptions(Widget):
     def get_html(self):
         return mark_safe('')
 
+    def get_pdf(self):
+        return mark_safe('')
+
     def get_option_form(self):
         html = render_to_string("dojo/report_widget.html", {"form": self.form,
                                                             "multiple": self.multiple,
@@ -186,6 +196,11 @@ class CoverPage(Widget):
                                                                                 "sub_heading": self.sub_heading,
                                                                                 "meta_info": self.meta_info})
 
+    def get_pdf(self):
+        return render_to_string("dojo/custom_pdf_report_cover_page.html", {"heading": self.title,
+                                                                                "sub_heading": self.sub_heading,
+                                                                                "meta_info": self.meta_info})
+
     def get_option_form(self):
         html = render_to_string("dojo/report_widget.html", {"form": self.form,
                                                             "multiple": self.multiple,
@@ -202,6 +217,9 @@ class TableOfContents(Widget):
         self.help_text = "The table of contents includes a page break after its content."
 
     def get_html(self):
+        return mark_safe('')
+
+    def get_pdf(self):
         return mark_safe('')
 
     def get_asciidoc(self):
@@ -224,6 +242,11 @@ class WYSIWYGContent(Widget):
         self.multiple = 'true'
 
     def get_html(self):
+        html = render_to_string("dojo/custom_pdf_report_wysiwyg_content.html", {"title": self.title,
+                                                                                "content": self.content})
+        return mark_safe(html)
+
+    def get_pdf(self):
         html = render_to_string("dojo/custom_pdf_report_wysiwyg_content.html", {"title": self.title,
                                                                                 "content": self.content})
         return mark_safe(html)
@@ -305,6 +328,16 @@ class FindingList(Widget):
                                  "user_id": self.user_id})
         return mark_safe(html)
 
+    def get_pdf(self):
+        html = render_to_string("dojo/custom_pdf_report_finding_list.html",
+                                {"title": self.title,
+                                 "findings": self.findings.qs,
+                                 "include_finding_notes": self.finding_notes,
+                                 "include_finding_images": self.finding_images,
+                                 "host": self.host,
+                                 "user_id": self.user_id})
+        return mark_safe(html)
+
     def get_option_form(self):
         html = render_to_string('dojo/report_findings.html',
                                 {"findings": self.paged_findings,
@@ -356,6 +389,16 @@ class EndpointList(Widget):
                           "report."
 
     def get_html(self):
+        html = render_to_string("dojo/custom_pdf_report_endpoint_list.html",
+                                {"title": self.title,
+                                 "endpoints": self.endpoints.qs,
+                                 "include_finding_notes": self.finding_notes,
+                                 "include_finding_images": self.finding_images,
+                                 "host": self.host,
+                                 "user_id": self.user_id})
+        return mark_safe(html)
+
+    def get_pdf(self):
         html = render_to_string("dojo/custom_pdf_report_endpoint_list.html",
                                 {"title": self.title,
                                  "endpoints": self.endpoints.qs,
