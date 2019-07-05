@@ -143,7 +143,7 @@ class PageBreak(Widget):
         return mark_safe('<hr title="Page Break" class="report-page-break"/>')
 
     def get_pdf(self):
-        return mark_safe('<hr title="Page Break" class="report-page-break"/>'
+        return mark_safe('<hr title="Page Break" class="report-page-break"/>')
 
     def get_asciidoc(self):
         return mark_safe('<br/><<<<br/>')
