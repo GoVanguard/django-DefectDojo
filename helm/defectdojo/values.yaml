@@ -55,8 +55,13 @@ django:
   tolerations: []
   uwsgi:
     repository: defectdojo/defectdojo-django
+<<<<<<< HEAD
     resources:
       requests:
+=======
+    resources: 
+      requests: 
+>>>>>>> 8b8dc344c902e2fcf6328d8c395106ac8ffa3e16
         cpu: 100m
         memory: 128Mi
 
