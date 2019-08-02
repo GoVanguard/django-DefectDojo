@@ -2,13 +2,11 @@
 
 # The code for the build image should be idendical with the code in
 # Dockerfile.nginx to use the caching mechanism of Docker.
-
 FROM python:2 as build
 WORKDIR /app
 RUN \
   apt-get -y update && \
   apt-get -y install \
-    cloc \
     dnsutils \
     default-mysql-client \
     postgresql-client \
@@ -37,35 +35,19 @@ RUN \
     xmlsec1 \
     # only required for the dbshell (used by the initializer job)
     postgresql-client \
-    wget \
-    git \
     && \
-  wget -O "wkhtmltox_0.12.5-1.stretch_amd64.deb" 'https://downloads.wkhtmltopdf.org/0.12/0.12.5/wkhtmltox_0.12.5-1.stretch_amd64.deb' && \
-  apt install -y --fix-broken ./wkhtmltox_0.12.5-1.stretch_amd64.deb && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists && \
   true
-<<<<<<< HEAD
+RUN ln -s libmariadb.so.3 /usr/lib/x86_64-linux-gnu/libmariadbclient.so.18
 RUN pip install --no-cache-dir --upgrade pip
 COPY --from=build /tmp/wheels /tmp/wheels
-=======
-RUN git clone https://github.com/JazzCore/python-pdfkit.git && \
-    true
-RUN ls -lh python-pdfkit -R
-COPY Patches/pdfkit/pdfkit.py /app
-RUN mv python-pdfkit/pdfkit/pdfkit.py python-pdfkit/pdfkit/pdfkit.py.old && \
-    mv pdfkit.py python-pdfkit/pdfkit/pdfkit.py 
-RUN cd python-pdfkit && \
-  pip install setuptools --upgrade && \
-  python setup.py install && \
-  true
->>>>>>> 8b8dc344c902e2fcf6328d8c395106ac8ffa3e16
 COPY requirements.txt ./
 RUN pip install \
 	--no-cache-dir \
 	--no-index \
-  --find-links=/tmp/wheels \
-  -r ./requirements.txt
+        --find-links=/tmp/wheels \
+        -r ./requirements.txt
 RUN \
   apt-get -y update && \
   apt-get -y install \
@@ -80,7 +62,7 @@ RUN \
 RUN git clone https://github.com/JazzCore/python-pdfkit.git && \
     true
 RUN ls -lh python-pdfkit -R
-COPY Patches/pdfkit/pdfkit.py /app
+COPY pdfkit/pdfkit.py /app
 RUN mv python-pdfkit/pdfkit/pdfkit.py python-pdfkit/pdfkit/pdfkit.py.old && \
     mv pdfkit.py python-pdfkit/pdfkit/pdfkit.py
 RUN cd python-pdfkit && \
@@ -101,20 +83,15 @@ COPY wsgi.py manage.py tests/unit-tests.sh ./
 COPY dojo/ ./dojo/
 # Legacy installs need the modified settings.py, do not remove!
 RUN \
-  mkdir media && \
-  chmod g=u media && \
-  true
-RUN \
   cp dojo/settings/settings.dist.py dojo/settings/settings.py
-RUN \
-  mkdir media && \
-  chmod g=u media && \
-  true 
 COPY tests/ ./tests/
 RUN \
+  mkdir media && \
   mkdir dojo/migrations && \
   chmod g=u dojo/migrations && \
+  chmod g=u /usr/local/lib/python2.7/site-packages/django_mfa/migrations && \
   chmod g=u /var/run && \
+  chmod g=u media && \
   true
 USER 1001
 ENV \

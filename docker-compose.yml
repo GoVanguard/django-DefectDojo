@@ -15,7 +15,6 @@ services:
         mode: host
     volumes:
       - type: volume
-<<<<<<< HEAD:docker-compose.yml
         source: app_data
         target: /app/media
   uwsgi:
@@ -34,11 +33,8 @@ services:
       DD_CELERY_BROKER_PASSWORD: ${DD_CELERY_BROKER_USER:-guest}
     volumes:
       - type: volume
-        source: app_data                                                                                                                                                                                                     target: /app/media
-=======
-        source: app-volume
+        source: app_data
         target: /app/media
->>>>>>> 8b8dc344c902e2fcf6328d8c395106ac8ffa3e16:docker-compose_base.yml
   celerybeat:
     image: defectdojo/defectdojo-django:latest
     depends_on:
@@ -51,7 +47,7 @@ services:
       DD_CELERY_BROKER_PASSWORD: ${DD_CELERY_BROKER_USER:-guest}
     volumes:
       - type: volume
-        source: app-volume
+        source: app_data
         target: /app/media
   celeryworker:
     image: defectdojo/defectdojo-django:latest
@@ -65,12 +61,8 @@ services:
       DD_CELERY_BROKER_PASSWORD: ${DD_CELERY_BROKER_USER:-guest}
     volumes:
       - type: volume
-<<<<<<< HEAD:docker-compose.yml
-        source: app_data                                                                                                                                                                                                     target: /app/media
-=======
-        source: app-volume
+        source: app_data
         target: /app/media
->>>>>>> 8b8dc344c902e2fcf6328d8c395106ac8ffa3e16:docker-compose_base.yml
   initializer:
     image: defectdojo/defectdojo-django:latest
     depends_on:
@@ -97,9 +89,5 @@ services:
   rabbitmq:
     image: rabbitmq:3.7
 volumes:
-<<<<<<< HEAD:docker-compose.yml
   defectdojo_data: {}
   app_data: {}
-=======
-  app-volume:
->>>>>>> 8b8dc344c902e2fcf6328d8c395106ac8ffa3e16:docker-compose_base.yml
