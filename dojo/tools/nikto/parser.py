@@ -22,6 +22,10 @@ class NiktoXMLParser(object):
         root = tree.getroot()
         scan = root.find('scandetails')
 
+        if scan is None:
+            scan = ""
+            return
+        
         for item in scan.findall('item'):
             # Title
             titleText = None
