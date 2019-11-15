@@ -67,11 +67,11 @@ class ZapXmlParser(object):
                     references += ref + "\n"
 
                 find = Finding(title=item.name,
-                               cwe=item.cwe,
+                               cwe=item.cweid,
                                description=strip_tags(item.desc),
                                test=test,
                                severity=severity,
-                               mitigation=strip_tags(item.resolution),
+                               mitigation=strip_tags(item.solution),
                                references=references,
                                active=False,
                                verified=False,
