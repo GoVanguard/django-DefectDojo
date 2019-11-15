@@ -45,18 +45,19 @@ class ZapXmlParser(object):
         """
         try:
             tree = ET.parse(xml_output)
+            root = tree.getroot()
         except SyntaxError as se:
             raise se
 
-        return tree
+        return root
 
-    def get_items(self, tree, test):
+    def get_items(self, root, test):
         """
         @return items A list of Host instances
         """
 
         items = list()
-        for node in tree.findall('site'):
+        for node in root.findall('site'):
             site = Site(node)
             main_host = Endpoint(host=site.ip + site.port if site.port is not None else "")
             for item in site.items:
