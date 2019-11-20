@@ -78,7 +78,7 @@ def import_parser_factory(file, test, scan_type=None):
         parser = CrashtestSecurityXmlParser(file, test)
     elif scan_type == "Bandit Scan":
         parser = BanditParser(file, test)
-    elif scan_type == "ZAP Scan":
+    elif scan_type == "ZAP Scan" or scan_type == "ZAP Scan XML":
         parser = ZapXmlParser(file, test)
     elif scan_type == "AppSpider Scan":
         parser = AppSpiderXMLParser(file, test)
