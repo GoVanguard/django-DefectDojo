@@ -7,7 +7,11 @@ from datetime import datetime
 
 class AnchoreEngineScanParser(object):
     def __init__(self, filename, test):
-        data = json.load(filename)
+        tree = filename.read()
+        try:
+            data = json.loads(str(tree, 'utf-8'))
+        except:
+            data = json.loads(tree)
         dupes = dict()
         find_date = datetime.now()
 
@@ -39,7 +43,7 @@ class AnchoreEngineScanParser(object):
 
             sev = item['severity']
             if sev == "Negligible" or sev == "Unknown":
-                sev = u'Info'
+                sev = 'Info'
 
             mitigation += "Upgrade to " + item['package_name'] + ' ' + item['fix'] + '\n'
             mitigation += "URL: " + item['url'] + '\n'
@@ -56,8 +60,6 @@ class AnchoreEngineScanParser(object):
                 find = Finding(
                     title=title,
                     test=test,
-                    active=False,
-                    verified=False,
                     cve=cve,
                     description=findingdetail,
                     severity=sev,
@@ -68,8 +70,9 @@ class AnchoreEngineScanParser(object):
                     file_path=item["package_path"],
                     url=item['url'],
                     date=find_date,
-                    static_finding=True)
+                    static_finding=True,
+                    dynamic_finding=False)
 
                 dupes[dupe_key] = find
 
-        self.items = dupes.values()
+        self.items = list(dupes.values())

@@ -328,6 +328,7 @@ if env('DD_SECURE_HSTS_INCLUDE_SUBDOMAINS'):
 
 # Credential Key
 CREDENTIAL_AES_256_KEY = env('DD_CREDENTIAL_AES_256_KEY')
+DB_KEY = env('DD_CREDENTIAL_AES_256_KEY')
 
 # wkhtmltopdf settings
 WKHTMLTOPDF_PATH = env('DD_WKHTMLTOPDF')
@@ -461,7 +462,7 @@ DJANGO_MIDDLEWARE_CLASSES = [
     'social_django.middleware.SocialAuthExceptionMiddleware',
 ]
 
-MIDDLEWARE_CLASSES = DJANGO_MIDDLEWARE_CLASSES
+MIDDLEWARE = DJANGO_MIDDLEWARE_CLASSES
 
 # WhiteNoise allows your web app to serve its own static files,
 # making it a self-contained unit that can be deployed anywhere without relying on nginx
@@ -471,7 +472,7 @@ if env('DD_WHITENOISE'):
         # https://warehouse.python.org/project/whitenoise/
         'whitenoise.middleware.WhiteNoiseMiddleware',
     ]
-    MIDDLEWARE_CLASSES = MIDDLEWARE_CLASSES + WHITE_NOISE
+    MIDDLEWARE = MIDDLEWARE + WHITE_NOISE
 
 EMAIL_CONFIG = env.email_url(
     'DD_EMAIL_URL', default='smtp://user@:password@localhost:25')

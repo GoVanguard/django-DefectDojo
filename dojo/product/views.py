@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib.contenttypes.models import ContentType
@@ -27,7 +27,6 @@ from dojo.utils import get_page_items, add_breadcrumb, get_punchcard_data, get_s
 from custom_field.models import CustomFieldValue, CustomField
 from dojo.tasks import add_epic_task, add_issue_task
 from tagging.models import Tag
-
 from tagging.utils import get_tag_list
 
 logger = logging.getLogger(__name__)
@@ -87,7 +86,7 @@ def view_product(request, pid):
     benchmarks = Benchmark_Product_Summary.objects.filter(product=prod, publish=True, benchmark_type__enabled=True).order_by('benchmark_type__name')
     benchAndPercent = []
     for i in range(0, len(benchmarks)):
-        benchAndPercent.append([benchmark_type[i], get_level(benchmarks[i])])
+        benchAndPercent.append([benchmarks[i].benchmark_type, get_level(benchmarks[i])])
 
     system_settings = System_Settings.objects.get()
 
@@ -214,6 +213,29 @@ def view_product_metrics(request, pid):
                                              out_of_scope=False,
                                              mitigated__isnull=False)
 
+    open_vulnerabilities = Finding.objects.filter(
+        test__engagement__product=prod,
+        false_p=False,
+        verified=True,
+        duplicate=False,
+        out_of_scope=False,
+        active=True,
+        mitigated__isnull=True,
+    ).order_by('cwe').values(
+        'cwe'
+    ).annotate(
+        count=Count('cwe')
+    )
+
+    all_vulnerabilities = Finding.objects.filter(
+        test__engagement__product=prod,
+        duplicate=False,
+    ).order_by('cwe').values(
+        'cwe'
+    ).annotate(
+        count=Count('cwe')
+    )
+
     start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
 
     r = relativedelta(end_date, start_date)
@@ -316,6 +338,8 @@ def view_product_metrics(request, pid):
                    'closed_findings': closed_findings,
                    'accepted_findings': accepted_findings,
                    'new_findings': new_verified_findings,
+                   'open_vulnerabilities': open_vulnerabilities,
+                   'all_vulnerabilities': all_vulnerabilities,
                    'start_date': start_date,
                    'punchcard': punchcard,
                    'ticks': ticks,
@@ -432,7 +456,7 @@ def new_product(request):
     if request.method == 'POST':
         form = ProductForm(request.POST, instance=Product())
         if get_system_setting('enable_jira'):
-                jform = JIRAPKeyForm(request.POST, instance=JIRA_PKey())
+            jform = JIRAPKeyForm(request.POST, instance=JIRA_PKey())
         else:
             jform = None
 
@@ -446,21 +470,21 @@ def new_product(request):
                                  'Product added successfully.',
                                  extra_tags='alert-success')
             if get_system_setting('enable_jira'):
-                    if jform.is_valid():
-                        jira_pkey = jform.save(commit=False)
-                        if jira_pkey.conf is not None:
-                            jira_pkey.product = product
-                            jira_pkey.save()
-                            messages.add_message(request,
-                                                 messages.SUCCESS,
-                                                 'JIRA information added successfully.',
-                                                 extra_tags='alert-success')
-            create_notification(event='product_added', title=product.name, url=request.build_absolute_uri(reverse('view_product', args=(product.id,))))
+                if jform.is_valid():
+                    jira_pkey = jform.save(commit=False)
+                    if jira_pkey.conf is not None:
+                        jira_pkey.product = product
+                        jira_pkey.save()
+                        messages.add_message(request,
+                                                messages.SUCCESS,
+                                                'JIRA information added successfully.',
+                                                extra_tags='alert-success')
+            create_notification(event='product_added', title=product.name, url=reverse('view_product', args=(product.id,)))
             return HttpResponseRedirect(reverse('view_product', args=(product.id,)))
     else:
         form = ProductForm()
         if get_system_setting('enable_jira'):
-                jform = JIRAPKeyForm()
+            jform = JIRAPKeyForm()
         else:
             jform = None
     add_breadcrumb(title="New Product", top_level=False, request=request)
@@ -553,6 +577,11 @@ def delete_product(request, pid):
                                      messages.SUCCESS,
                                      'Product and relationships removed.',
                                      extra_tags='alert-success')
+                create_notification(event='other',
+                                    title='Deletion of %s' % product.name,
+                                    description='The product "%s" was deleted by %s' % (product.name, request.user),
+                                    url=request.build_absolute_uri(reverse('product')),
+                                    icon="exclamation-triangle")
                 return HttpResponseRedirect(reverse('product'))
 
     collector = NestedObjects(using=DEFAULT_DB_ALIAS)
@@ -620,20 +649,20 @@ def new_eng_for_app(request, pid, cicd=False):
             t = ", ".join(tags)
             new_eng.tags = t
             if get_system_setting('enable_jira'):
-                    # Test to make sure there is a Jira project associated the product
-                    try:
-                        jform = JIRAFindingForm(request.POST, prefix='jiraform', enabled=JIRA_PKey.objects.get(product=prod).push_all_issues)
-                        if jform.is_valid():
-                            add_epic_task.delay(new_eng, jform.cleaned_data.get('push_to_jira'))
-                    except JIRA_PKey.DoesNotExist:
-                        pass
+                # Test to make sure there is a Jira project associated the product
+                try:
+                    jform = JIRAFindingForm(request.POST, prefix='jiraform', enabled=JIRA_PKey.objects.get(product=prod).push_all_issues)
+                    if jform.is_valid():
+                        add_epic_task.delay(new_eng, jform.cleaned_data.get('push_to_jira'))
+                except JIRA_PKey.DoesNotExist:
+                    pass
 
             messages.add_message(request,
                                  messages.SUCCESS,
                                  'Engagement added successfully.',
                                  extra_tags='alert-success')
 
-            create_notification(event='engagement_added', title=new_eng.name + " for " + prod.name, engagement=new_eng, url=request.build_absolute_uri(reverse('view_engagement', args=(new_eng.id,))), objowner=new_eng.lead)
+            create_notification(event='engagement_added', title=new_eng.name + " for " + prod.name, engagement=new_eng, url=reverse('view_engagement', args=(new_eng.id,)), objowner=new_eng.lead)
 
             if "_Add Tests" in request.POST:
                 return HttpResponseRedirect(reverse('add_tests', args=(new_eng.id,)))
@@ -644,8 +673,8 @@ def new_eng_for_app(request, pid, cicd=False):
     else:
         form = EngForm(initial={'lead': request.user, 'target_start': timezone.now().date(), 'target_end': timezone.now().date() + timedelta(days=7)}, cicd=cicd, product=prod.id)
         if(get_system_setting('enable_jira')):
-                if JIRA_PKey.objects.filter(product=prod).count() != 0:
-                    jform = JIRAFindingForm(prefix='jiraform', enabled=JIRA_PKey.objects.get(product=prod).push_all_issues)
+            if JIRA_PKey.objects.filter(product=prod).count() != 0:
+                jform = JIRAFindingForm(prefix='jiraform', enabled=JIRA_PKey.objects.get(product=prod).push_all_issues)
 
     product_tab = Product_Tab(pid, title="New Engagement", tab="engagements")
     return render(request, 'dojo/new_eng.html',
@@ -692,7 +721,7 @@ def add_meta_data(request, pid):
 def edit_meta_data(request, pid):
     prod = Product.objects.get(id=pid)
     if request.method == 'POST':
-        for key, value in request.POST.iteritems():
+        for key, value in request.POST.items():
             if key.startswith('cfv_'):
                 cfv_id = int(key.split('_')[1])
                 cfv = get_object_or_404(DojoMeta, id=cfv_id)
@@ -742,9 +771,9 @@ def ad_hoc_finding(request, pid):
     jform = None
     form = AdHocFindingForm(initial={'date': timezone.now().date()})
     if get_system_setting('enable_jira'):
-            if JIRA_PKey.objects.filter(product=test.engagement.product).count() != 0:
-                enabled = JIRA_PKey.objects.get(product=test.engagement.product).push_all_issues
-                jform = JIRAFindingForm(enabled=enabled, prefix='jiraform')
+        if JIRA_PKey.objects.filter(product=test.engagement.product).count() != 0:
+            enabled = JIRA_PKey.objects.get(product=test.engagement.product).push_all_issues
+            jform = JIRAFindingForm(enabled=enabled, prefix='jiraform')
     else:
         jform = None
     if request.method == 'POST':
@@ -762,7 +791,7 @@ def ad_hoc_finding(request, pid):
             # always false now since this will be deprecated soon in favor of new Finding_Template model
             new_finding.is_template = False
             new_finding.save()
-            new_finding.endpoints = form.cleaned_data['endpoints']
+            new_finding.endpoints.set(form.cleaned_data['endpoints'])
             new_finding.save()
             if 'jiraform-push_to_jira' in request.POST:
                 jform = JIRAFindingForm(request.POST, prefix='jiraform', enabled=enabled)

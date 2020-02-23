@@ -1,4 +1,4 @@
-import StringIO
+import io
 import csv
 import hashlib
 from defusedxml import ElementTree
@@ -88,10 +88,10 @@ class VCGXmlParser(object):
         data.severity = self.get_field_from_xml(issue, 'Severity')
         data.description = self.get_field_from_xml(issue, 'Description')
         data.filename = self.get_field_from_xml(issue, 'FileName')
-        #data.file_path = self.get_field_from_xml(issue, 'FileName')
+        # data.file_path = self.get_field_from_xml(issue, 'FileName')
         data.line = self.get_field_from_xml(issue, 'Line')
         data.code_line = self.get_field_from_xml(issue, 'CodeLine')
-        #data.line = self.get_field_from_xml(issue, 'CodeLine')
+        # data.line = self.get_field_from_xml(issue, 'CodeLine')
 
         finding = data.to_finding(test)
         return finding
@@ -109,7 +109,7 @@ class VCGXmlParser(object):
             finding = self.parse_issue(issue, test)
 
             if finding is not None:
-                key = hashlib.md5(finding.severity + '|' + finding.title + '|' + finding.description).hexdigest()
+                key = hashlib.md5((finding.severity + '|' + finding.title + '|' + finding.description).encode('utf-8')).hexdigest()
 
                 if key not in dupes:
                     dupes[key] = finding
@@ -162,12 +162,14 @@ class VCGCsvParser(object):
 
     def parse(self, content, test):
         dupes = dict()
-        reader = csv.reader(StringIO.StringIO(content), delimiter=',', quotechar='"')
+        if type(content) is bytes:
+            content = content.decode('utf-8')
+        reader = csv.reader(io.StringIO(content), delimiter=',', quotechar='"')
         for row in reader:
             finding = self.parse_issue(row, test)
 
             if finding is not None:
-                key = hashlib.md5(finding.severity + '|' + finding.title + '|' + finding.description).hexdigest()
+                key = hashlib.md5((finding.severity + '|' + finding.title + '|' + finding.description).encode('utf-8')).hexdigest()
 
                 if key not in dupes:
                     dupes[key] = finding
@@ -190,8 +192,8 @@ class VCGParser(object):
         content = filename.read()
 
         if filename.name.lower().endswith('.xml'):
-            self.items = VCGXmlParser().parse(content, test).values()
+            self.items = list(VCGXmlParser().parse(content, test).values())
         elif filename.name.lower().endswith('.csv'):
-            self.items = VCGCsvParser().parse(content, test).values()
+            self.items = list(VCGCsvParser().parse(content, test).values())
         else:
             raise Exception('Unknown File Format')

@@ -1,6 +1,6 @@
 from xml.dom import NamespaceErr
 import hashlib
-from urlparse import urlparse
+from urllib.parse import urlparse
 from dojo.models import Endpoint, Finding
 from defusedxml import ElementTree
 
@@ -32,7 +32,11 @@ class ImmuniwebXMLParser(object):
             impact = "N/A"
             title = vulnerability.find('Name').text
             reference = vulnerability.find('ID').text
-            cwe = vulnerability.find('CWE-ID').text
+            cwe = ''.join(i for i in vulnerability.find('CWE-ID').text if i.isdigit())
+            if cwe:
+                cwe = cwe
+            else:
+                cwe = None
             cve = vulnerability.find('CVE-ID').text
             steps_to_reproduce = vulnerability.find('PoC').text
             # just to make sure severity is in the recognised sentence casing form
@@ -41,7 +45,7 @@ class ImmuniwebXMLParser(object):
             if severity == 'Warning':
                 severity = "Informational"
 
-            description = (vulnerability.find('Description').text).encode('utf-8')
+            description = (vulnerability.find('Description').text)
             url = vulnerability.find("URL").text
             parsedUrl = urlparse(url)
             protocol = parsedUrl.scheme
@@ -55,7 +59,7 @@ class ImmuniwebXMLParser(object):
             except:  # there's no port attached to address
                 host = parsedUrl.netloc
 
-            dupe_key = hashlib.md5(description + title + severity).hexdigest()
+            dupe_key = hashlib.md5(str(description + title + severity).encode('utf-8')).hexdigest()
 
             # check if finding is a duplicate
             if dupe_key in self.dupes:
@@ -73,6 +77,7 @@ class ImmuniwebXMLParser(object):
                     numerical_severity=Finding.get_numerical_severity(
                         severity
                     ),
+                    cwe=cwe,
                     mitigation=mitigation,
                     impact=impact,
                     references=reference,
@@ -87,4 +92,4 @@ class ImmuniwebXMLParser(object):
                         protocol=protocol,
                         query=query, fragment=fragment))
 
-        self.items = self.dupes.values()
+        self.items = list(self.dupes.values())

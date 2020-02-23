@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.db.models import Q
 from django.http import HttpResponseRedirect, StreamingHttpResponse, Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404
@@ -32,6 +32,7 @@ from dojo.tools.factory import import_parser_factory
 from dojo.utils import get_page_items, add_breadcrumb, handle_uploaded_threat, \
     FileIterWrapper, get_cal_event, message, get_system_setting, create_notification, Product_Tab
 from dojo.tasks import update_epic_task, add_epic_task
+from functools import reduce
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,12 @@ def delete_engagement(request, eid):
                     messages.SUCCESS,
                     'Engagement and relationships removed.',
                     extra_tags='alert-success')
+                create_notification(event='other',
+                                    title='Deletion of %s' % engagement.name,
+                                    description='The engagement "%s" was deleted by %s' % (engagement.name, request.user),
+                                    url=request.build_absolute_uri(reverse('view_engagements', args=(product.id, ))),
+                                    recipients=[engagement.lead],
+                                    icon="exclamation-triangle")
 
                 if engagement.engagement_type == 'CI/CD':
                     return HttpResponseRedirect(reverse("view_engagements_cicd", args=(product.id, )))
@@ -412,8 +419,7 @@ def add_tests(request, eid):
                 title=new_test.test_type.name + " for " + eng.product.name,
                 test=new_test,
                 engagement=eng,
-                url=request.build_absolute_uri(
-                    reverse('view_engagement', args=(eng.id, ))))
+                url=reverse('view_engagement', args=(eng.id, )))
 
             if '_Add Another Test' in request.POST:
                 return HttpResponseRedirect(
@@ -518,8 +524,8 @@ def import_scan_results(request, eid=None, pid=None):
 
             try:
                 for item in parser.items:
-                    print "item blowup"
-                    print item
+                    print("item blowup")
+                    print(item)
                     sev = item.severity
                     if sev == 'Information' or sev == 'Informational':
                         sev = 'Info'
@@ -544,19 +550,26 @@ def import_scan_results(request, eid=None, pid=None):
                     if hasattr(item, 'unsaved_req_resp') and len(
                             item.unsaved_req_resp) > 0:
                         for req_resp in item.unsaved_req_resp:
-                            burp_rr = BurpRawRequestResponse(
-                                finding=item,
-                                burpRequestBase64=req_resp["req"],
-                                burpResponseBase64=req_resp["resp"],
-                            )
+                            if form.get_scan_type() == "Arachni Scan":
+                                burp_rr = BurpRawRequestResponse(
+                                    finding=item,
+                                    burpRequestBase64=req_resp["req"],
+                                    burpResponseBase64=req_resp["resp"],
+                                )
+                            else:
+                                burp_rr = BurpRawRequestResponse(
+                                    finding=item,
+                                    burpRequestBase64=req_resp["req"].encode("utf-8"),
+                                    burpResponseBase64=req_resp["resp"].encode("utf-8"),
+                                )
                             burp_rr.clean()
                             burp_rr.save()
 
                     if item.unsaved_request is not None and item.unsaved_response is not None:
                         burp_rr = BurpRawRequestResponse(
                             finding=item,
-                            burpRequestBase64=item.unsaved_request,
-                            burpResponseBase64=item.unsaved_response,
+                            burpRequestBase64=item.unsaved_request.encode("utf-8"),
+                            burpResponseBase64=item.unsaved_response.encode("utf-8"),
                         )
                         burp_rr.clean()
                         burp_rr.save()
@@ -591,8 +604,7 @@ def import_scan_results(request, eid=None, pid=None):
                     finding_count=finding_count,
                     test=t,
                     engagement=engagement,
-                    url=request.build_absolute_uri(
-                        reverse('view_test', args=(t.id, ))))
+                    url=reverse('view_test', args=(t.id, )))
 
                 return HttpResponseRedirect(
                     reverse('view_test', args=(t.id, )))
@@ -632,6 +644,10 @@ def close_eng(request, eid):
         messages.SUCCESS,
         'Engagement closed successfully.',
         extra_tags='alert-success')
+    create_notification(event='other',
+                        title='Closure of %s' % eng.name,
+                        description='The engagement "%s" was closed' % (eng.name),
+                        url=request.build_absolute_uri(reverse('view_engagements', args=(eng.product.id, ))),)
     if eng.engagement_type == 'CI/CD':
         return HttpResponseRedirect(reverse("view_engagements_cicd", args=(eng.product.id, )))
     else:
@@ -647,6 +663,10 @@ def reopen_eng(request, eid):
         messages.SUCCESS,
         'Engagement reopened successfully.',
         extra_tags='alert-success')
+    create_notification(event='other',
+                        title='Reopening of %s' % eng.name,
+                        description='The engagement "%s" was reopened' % (eng.name),
+                        url=request.build_absolute_uri(reverse('view_engagements', args=(eng.product.id, ))),)
     if eng.engagement_type == 'CI/CD':
         return HttpResponseRedirect(reverse("view_engagements_cicd", args=(eng.product.id, )))
     else:
@@ -732,7 +752,7 @@ def upload_risk(request, eid):
             risk.compensating_control = form.cleaned_data['compensating_control']
             risk.path = form.cleaned_data['path']
             risk.save()  # have to save before findings can be added
-            risk.accepted_findings = findings
+            risk.accepted_findings.set(findings)
             if form.cleaned_data['notes']:
                 notes = Notes(
                     entry=form.cleaned_data['notes'],

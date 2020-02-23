@@ -23,7 +23,7 @@ from dojo.api_v2.views import EndPointViewSet, EngagementViewSet, \
     ScansViewSet, StubFindingsViewSet, TestsViewSet, TestTypesViewSet, \
     ToolConfigurationsViewSet, ToolProductSettingsViewSet, ToolTypesViewSet, \
     UsersViewSet, ImportScanView, ReImportScanView, ProductTypeViewSet, DojoMetaViewSet, \
-    DevelopmentEnvironmentViewSet
+    DevelopmentEnvironmentViewSet, NotesViewSet
 
 from dojo.utils import get_system_setting
 from dojo.development_environment.urls import urlpatterns as dev_env_urls
@@ -109,7 +109,7 @@ v2_api.register(r'users', UsersViewSet)
 v2_api.register(r'import-scan', ImportScanView, base_name='importscan')
 v2_api.register(r'reimport-scan', ReImportScanView, base_name='reimportscan')
 v2_api.register(r'metadata', DojoMetaViewSet, base_name='metadata')
-
+v2_api.register(r'notes', NotesViewSet)
 
 ur = []
 ur += dev_env_urls
@@ -154,7 +154,7 @@ urlpatterns = [
     url(r'^%sapi/v2/' % get_system_setting('url_prefix'), include(v2_api.urls)),
     # api doc urls
     url(r'%sapi/v1/doc/' % get_system_setting('url_prefix'),
-        include(swagger_urls, namespace='tastypie_swagger'),
+        include((swagger_urls, 'tp_s'), namespace='tastypie_swagger'),
         kwargs={
             "tastypie_api_module": "dojo.urls.v1_api",
             "namespace": "tastypie_swagger",
@@ -172,7 +172,7 @@ urlpatterns = [
 if hasattr(settings, 'DJANGO_ADMIN_ENABLED'):
     if settings.DJANGO_ADMIN_ENABLED:
         #  django admin
-        urlpatterns += [url(r'^%sadmin/' % get_system_setting('url_prefix'), include(admin.site.urls))]
+        urlpatterns += [url(r'^%sadmin/' % get_system_setting('url_prefix'), admin.site.urls)]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

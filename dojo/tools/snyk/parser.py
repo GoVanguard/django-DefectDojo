@@ -15,7 +15,11 @@ class SnykParser(object):
 
     def parse_json(self, json_output):
         try:
-            tree = json.load(json_output)
+            data = json_output.read()
+            try:
+                tree = json.loads(str(data, 'utf-8'))
+            except:
+                tree = json.loads(data)
         except:
             raise Exception("Invalid format")
 
@@ -33,7 +37,7 @@ class SnykParser(object):
                     node['version']) + str(node['from']))
                 items[unique_key] = item
 
-        return items.values()
+        return list(items.values())
 
 
 def get_item(vulnerability, test):

@@ -1,22 +1,20 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import tempfile
 from datetime import timedelta
 from django.db.models import Count
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils.http import urlencode
 from celery.utils.log import get_task_logger
 from celery.decorators import task
 from dojo.models import Product, Finding, Engagement, System_Settings
 from django.utils import timezone
+from dojo.signals import dedupe_signal
 
 import pdfkit
 from dojo.celery import app
-from dojo.utils import sync_dedupe, sync_false_history, calculate_grade
+from dojo.utils import sync_false_history, calculate_grade
 from dojo.reports.widgets import report_widget_factory
 from dojo.utils import add_comment, add_epic, add_issue, update_epic, update_issue, \
                        close_epic, create_notification, sync_rules, get_system_setting
@@ -149,7 +147,7 @@ def async_custom_pdf_report(self,
     selected_widgets = report_widget_factory(json_data=report.options, request=None, user=user,
                                              finding_notes=finding_notes, finding_images=finding_images, host=host)
 
-    widgets = selected_widgets.values()
+    widgets = list(selected_widgets.values())
     temp = None
 
     try:
@@ -267,7 +265,7 @@ def add_comment_task(find, note):
 @app.task(name='async_dedupe')
 def async_dedupe(new_finding, *args, **kwargs):
     deduplicationLogger.debug("running deduplication")
-    sync_dedupe(new_finding, *args, **kwargs)
+    dedupe_signal.send(sender=new_finding.__class__, new_finding=new_finding)
 
 
 @app.task(name='applying rules')

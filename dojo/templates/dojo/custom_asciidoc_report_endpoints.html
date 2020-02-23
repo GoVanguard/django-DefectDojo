@@ -1,5 +1,7 @@
 {% load display_tags %}
 {% load humanize %}
+{% load get_endpoint_status %}
+{% load get_note_status %}
 {% load event_tags %}
 {% if endpoints %}
     <h3>== Endpoints ==</h3>
@@ -7,7 +9,17 @@
         <h4>=== {{ endpoint }} with {{ endpoint.active_findings|length|apnumber }} active findings ===</h4>
         {% for find in endpoint.active_findings %}
             <h5>==== Finding {{ find.id }}: {{ find.title | nice_title }} {% if find.mitigated %}
-                Mitigated on: {{ find.mitigated }} {% endif %}====</h5>
+                Mitigated on: {{ find.mitigated }} {% endif %}
+                {% if find.tags %}
+                    <sup>
+                        [
+                        {% for tag in find.tags %}
+                        {{ tag }}
+                        {% endfor %}
+                        ]
+                    </sup>
+                {% endif %}  ====
+            </h5>
             <br>
             <p><b>==== Product: ====</b>
                 <br>
@@ -40,11 +52,27 @@
                 {{ find.impact|linebreaksasciidocbr }}
             </p>
             <br>
-            <p><b>==== Systems Vulnerable: ====</b><br>
-                {% for endpoint in  find.endpoints.all %}
-                    {{ endpoint }} +<br/>
-                {% endfor %}
-            </p>
+            {% with endpoints=find.endpoints.all|get_vulnerable_endpoints %}
+                {% if endpoints %}
+                    <p><b>==== Systems Vulnerable: ====</b><br>
+                        {% for endpoint in endpoints %}
+                            {{ endpoint }} +<br/>
+                        {% endfor %}
+                    </p>
+                    <br>
+                {% endif %}
+            {% endwith %}
+
+            {% with endpoints=find.endpoints.all|get_remediated_endpoints %}
+                {% if endpoints %}
+                    <p><b>==== Systems Remediated: ====</b><br>
+                        {% for endpoint in endpoints %}
+                            {{ endpoint }} +<br/>
+                        {% endfor %}
+                    </p>
+                    <br>
+                {% endif %}
+            {% endwith %}
             <br>
             <p><b>==== Suggested Mitigation: ====</b>
                 <br>
@@ -72,18 +100,16 @@
             {% endif %}
             <br>
             {% if include_finding_notes %}
-                <p><b>==== Finding Notes: ====</b>
-                    <br>
-                    {% if find.notes.all %}
-                        {% for note in find.notes.all %}
-                            {{ note.author }} - {{ note.date }} - {{ note }} +<br>
-                        {% endfor %}
-                    {% else %}
-                        No notes found.
+                {% with notes=find.notes.all|get_public_notes %}
+                    {% if notes.count > 0 %}
+                        <p><b>==== Finding Notes: ====</b>
+                            <br>
+                                {% for note in notes reversed %}
+                                        {{ note.author }} - {{ note.date }} - {{ note }} +<br>
+                                {% endfor %}
+                        </p><br>
                     {% endif %}
-                </p><br>
-            {% else %}
-                <br>
+                {% endwith %}
             {% endif %}
         {% endfor %}
     {% endfor %}

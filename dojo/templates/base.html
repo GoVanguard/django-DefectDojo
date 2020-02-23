@@ -540,7 +540,7 @@
                     <p>
                         <a href="{% url 'home' %}"><img class="logo" src="{% static "dojo/img/chop.png" %}"
                                                         alt="DefectDojo Chop" height="45"/></a><br/>
-                        {% dojo_version %}
+                        {% dojo_version %} ( {% dojo_current_hash %} )
                     </p>
                     <p>
                         Detailed DefectDojo documentation can be found at  <a
@@ -623,6 +623,8 @@
                 });
                 $('.dropdown-alerts').append('<li><a class="text-center" href="{% url "alerts" %}"><strong>See All Alerts </strong>' +
                                              '<i class="fa fa-angle-right"></i></a></li>');
+                $('.dropdown-alerts').append('<li><a class="text-center" href="{% url "delete_alerts" %}"><strong>Clear All Alerts </strong>' +
+                                           '<i class="fa fa-angle-right"></i></a></li>');
             });
         }
     });

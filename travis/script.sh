@@ -177,7 +177,7 @@ echo "Running test ${TEST}"
           echo "Running Flake8 tests on dev branch aka pull requests"
           # We need to checkout dev for flake8-diff to work properly
           git checkout dev
-          sudo pip install pep8 flake8 flake8-diff
+          sudo pip3 install pep8 flake8 flake8-diff
           flake8-diff
       else
           echo "Skipping because not on dev branch"
@@ -186,13 +186,17 @@ echo "Running test ${TEST}"
     docker)
       echo "Validating docker compose"
       build_containers
-      # Testing only release mode, not dev mode (ignores docker-compose.override.yml)
-      docker-compose -f docker-compose.yml up -d
+      docker-compose up -d
       echo "Waiting for services to start"
       # Wait for services to become available
       sleep 80
       echo "Testing DefectDojo Service"
       curl -s -o "/dev/null" http://localhost:8080 -m 120
+      CR=$(curl -s -m 10 -I http://localhost:8080/login?next= | egrep "^HTTP" | cut  -d' ' -f2)
+      if [ "$CR" != 200 ]; then
+        echo "ERROR: cannot display login screen; got HTTP code $CR"
+        exit 1
+      fi
       echo "Docker compose container status"
       docker-compose -f docker-compose.yml ps
       ;;

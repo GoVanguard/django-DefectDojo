@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils.html import escape
@@ -17,16 +17,14 @@ from dojo.filters import EndpointFilter
 from dojo.forms import EditEndpointForm, \
     DeleteEndpointForm, AddEndpointForm, DojoMetaDataForm
 from dojo.models import Product, Endpoint, Finding, System_Settings, DojoMeta
-from dojo.utils import get_page_items, add_breadcrumb, get_period_counts, get_system_setting, Product_Tab
-from django.contrib.contenttypes.models import ContentType
-from custom_field.models import CustomFieldValue, CustomField
+from dojo.utils import get_page_items, add_breadcrumb, get_period_counts, get_system_setting, Product_Tab, calculate_grade, create_notification
 
 logger = logging.getLogger(__name__)
 
 
 def vulnerable_endpoints(request):
     endpoints = Endpoint.objects.filter(finding__active=True, finding__verified=True, finding__false_p=False,
-                                        finding__duplicate=False, finding__out_of_scope=False).distinct()
+                                        finding__duplicate=False, finding__out_of_scope=False, remediated=False).distinct()
 
     # are they authorized
     if request.user.is_staff:
@@ -228,6 +226,11 @@ def delete_endpoint(request, eid):
                                      messages.SUCCESS,
                                      'Endpoint and relationships removed.',
                                      extra_tags='alert-success')
+                create_notification(event='other',
+                                    title='Deletion of %s' % endpoint,
+                                    description='The endpoint "%s" was deleted by %s' % (endpoint, request.user),
+                                    url=request.build_absolute_uri(reverse('endpoints')),
+                                    icon="exclamation-triangle")
                 return HttpResponseRedirect(reverse('view_product', args=(product.id,)))
 
     collector = NestedObjects(using=DEFAULT_DB_ALIAS)
@@ -341,7 +344,7 @@ def edit_meta_data(request, eid):
     endpoint = Endpoint.objects.get(id=eid)
 
     if request.method == 'POST':
-        for key, value in request.POST.iteritems():
+        for key, value in request.POST.items():
             if key.startswith('cfv_'):
                 cfv_id = int(key.split('_')[1])
                 cfv = get_object_or_404(DojoMeta, id=cfv_id)
@@ -364,3 +367,33 @@ def edit_meta_data(request, eid):
                   {'endpoint': endpoint,
                    'product_tab': product_tab,
                    })
+
+
+@user_passes_test(lambda u: u.is_staff)
+def endpoint_bulk_update_all(request, pid=None):
+    if request.method == "POST":
+        endpoints_to_update = request.POST.getlist('endpoints_to_update')
+        if request.POST.get('delete_bulk_endpoints') and endpoints_to_update:
+            finds = Endpoint.objects.filter(id__in=endpoints_to_update)
+            product_calc = list(Product.objects.filter(endpoint__id__in=endpoints_to_update).distinct())
+            finds.delete()
+            for prod in product_calc:
+                calculate_grade(prod)
+        else:
+            if endpoints_to_update:
+                endpoints_to_update = request.POST.getlist('endpoints_to_update')
+                finds = Endpoint.objects.filter(id__in=endpoints_to_update).order_by("endpoint_meta__product__id")
+                for endpoint in finds:
+                    endpoint.remediated = not endpoint.remediated
+                    endpoint.save()
+                messages.add_message(request,
+                                     messages.SUCCESS,
+                                     'Bulk edit of endpoints was successful.  Check to make sure it is what you intended.',
+                                     extra_tags='alert-success')
+            else:
+                # raise Exception('STOP')
+                messages.add_message(request,
+                                     messages.ERROR,
+                                     'Unable to process bulk update. Required fields were not selected.',
+                                     extra_tags='alert-danger')
+    return HttpResponseRedirect(reverse('endpoints', args=()))

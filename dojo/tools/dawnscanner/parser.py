@@ -4,11 +4,16 @@ from dateutil import parser
 import json
 import hashlib
 from dojo.models import Finding
+import re
 
 
 class DawnScannerParser(object):
     def __init__(self, filename, test):
-        data = json.load(filename)
+        tree = filename.read()
+        try:
+            data = json.loads(str(tree, 'utf-8'))
+        except:
+            data = json.loads(tree)
 
         dupes = dict()
         find_date = parser.parse(data['scan_started'])
@@ -24,15 +29,18 @@ class DawnScannerParser(object):
             group = ''
             status = ''
 
-            title = item['name']
-
+            title = item['name'].upper()
+            if "CVE" in title:
+                cve = re.findall(r'CVE-\d{4}-\d{4,7}', title)[0]
+            else:
+                cve = None
             # Finding details information
-            findingdetail = item['message'].encode('ascii', 'ignore')
+            findingdetail = item['message'] if item['message'][0:2] != 'b,' else item['message'][0:-1]
             sev = item['severity'].capitalize()
             mitigation = item['remediation']
             references = item['cve_link']
 
-            dupe_key = hashlib.md5(sev + '|' + title).hexdigest()
+            dupe_key = hashlib.md5(str(sev + '|' + title).encode("utf-8")).hexdigest()
 
             if dupe_key in dupes:
                 find = dupes[dupe_key]
@@ -43,6 +51,7 @@ class DawnScannerParser(object):
                     title=title,
                     test=test,
                     active=False,
+                    cve=cve,
                     verified=False,
                     description=findingdetail,
                     severity=sev,
@@ -55,5 +64,5 @@ class DawnScannerParser(object):
                     static_finding=True)
 
                 dupes[dupe_key] = find
-
-        self.items = dupes.values()
+        # raise Exception('Stopping import')
+        self.items = list(dupes.values())

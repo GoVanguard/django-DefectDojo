@@ -40,5 +40,4 @@ urlpatterns = [
         views.report_endpoints, name='report_endpoints'),
     url(r'^reports/custom$',
         views.custom_report, name='custom_report'),
-
 ]

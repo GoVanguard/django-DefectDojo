@@ -1,4 +1,4 @@
-from itertools import izip, chain
+from itertools import chain
 import random
 from django import template
 from django.contrib.contenttypes.models import ContentType
@@ -6,7 +6,7 @@ from django.template.defaultfilters import stringfilter
 from django.utils.html import escape
 from django.utils.safestring import mark_safe, SafeData
 from django.utils.text import normalize_newlines
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.contrib.auth.models import User
 from dojo.utils import prepare_for_view, get_system_setting
 from dojo.models import Check_List, FindingImageAccessToken, Finding, System_Settings, JIRA_PKey, Product
@@ -17,10 +17,10 @@ from markdown.extensions import Extension
 import dateutil.relativedelta
 import datetime
 from ast import literal_eval
-from urlparse import urlparse
+from urllib.parse import urlparse
 import bleach
 from bleach_whitelist import markdown_tags, markdown_attrs
-
+import git
 register = template.Library()
 
 
@@ -35,6 +35,7 @@ def markdown_render(value):
     if value:
         value = bleach.clean(markdown.markdown(value), markdown_tags, markdown_attrs)
         return mark_safe(markdown.markdown(value, extensions=['markdown.extensions.nl2br', 'markdown.extensions.sane_lists', 'markdown.extensions.codehilite', 'markdown.extensions.fenced_code', 'markdown.extensions.toc', 'markdown.extensions.tables']))
+
 
 @register.filter(name='ports_open')
 def ports_open(value):
@@ -91,6 +92,16 @@ def dojo_version():
 
 
 @register.simple_tag
+def dojo_current_hash():
+    try:
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        return sha[:8]
+    except:
+        return "release mode"
+
+
+@register.simple_tag
 def display_date():
     return timezone.now().strftime("%b %d, %Y")
 
@@ -123,7 +134,7 @@ def remove_string(string, value):
 @register.filter(name='percentage')
 def percentage(fraction, value):
     return_value = ''
-    if value > 0 and fraction > 0:
+    if int(value) > 0 and int(fraction) > 0:
         try:
             return_value = "%.1f%%" % ((float(fraction) / float(value)) * 100)
         except ValueError:
@@ -162,6 +173,7 @@ def get_level(benchmark_score):
     benchmark_score.desired_level, level, total_pass, total = asvs_calc_level(benchmark_score)
     level = percentage(total_pass, total)
     return level
+
 
 @register.filter(name='asvs_level')
 def asvs_level(benchmark_score):
@@ -248,7 +260,7 @@ def count_findings_test_duplicate(test):
 def paginator(page):
     page_value = paginator_value(page)
     if page_value:
-            page_value = "&page=" + page_value
+        page_value = "&page=" + page_value
     return page_value
 
 
@@ -306,7 +318,7 @@ def product_grade(product):
     if system_settings.enable_product_grade and product:
         prod_numeric_grade = product.prod_numeric_grade
 
-        if prod_numeric_grade is "" or prod_numeric_grade is None:
+        if prod_numeric_grade == "" or prod_numeric_grade is None:
             from dojo.utils import calculate_grade
             calculate_grade(product)
         if prod_numeric_grade:
@@ -349,7 +361,7 @@ def action_log_entry(value, autoescape=None):
     import json
     history = json.loads(value)
     text = ''
-    for k in history.iterkeys():
+    for k in history.keys():
         text += k.capitalize() + ' changed from "' + \
             history[k][0] + '" to "' + history[k][1] + '"'
 
@@ -381,7 +393,7 @@ def datediff_time(date1, date2):
         date_str = date_str + date_part + " "
 
     # Date is for one day
-    if date_str is "":
+    if date_str == "":
         date_str = "1 day"
 
     return date_str
@@ -437,9 +449,9 @@ def colgroup(parser, token):
         def render(self, context):
             iterable = template.Variable(self.iterable).resolve(context)
             num_cols = self.num_cols
-            context[self.varname] = izip(
+            context[self.varname] = zip(
                 *[chain(iterable, [None] * (num_cols - 1))] * num_cols)
-            return u''
+            return ''
 
     try:
         _, iterable, _, num_cols, _, _, varname = token.split_contents()

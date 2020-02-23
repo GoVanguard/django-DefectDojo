@@ -2,7 +2,10 @@
 
 # The code for the build image should be idendical with the code in
 # Dockerfile.nginx to use the caching mechanism of Docker.
-FROM python:2 as build
+# Using 3.5.7 to avoid compatibility issues that may be introduced by python 3.5.6 and 3.5.7. 
+# Please upgrade before end-of-life in september 2020!
+# Ref: https://devguide.python.org/#branchstatus
+FROM python:3.5.7-buster@sha256:4598d4365bb7a8628ba840f87406323e699c4da01ae6f926ff33787c63230779 as build
 WORKDIR /app
 RUN \
   apt-get -y update && \
@@ -11,14 +14,15 @@ RUN \
     default-mysql-client \
     postgresql-client \
     xmlsec1 \
+    git \
     && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists && \
   true
 COPY requirements.txt ./
-RUN pip wheel --wheel-dir=/tmp/wheels -r ./requirements.txt
+RUN pip3 wheel --wheel-dir=/tmp/wheels -r ./requirements.txt
 
-FROM python:2-slim
+FROM python:3.5.7-slim-buster@sha256:127fee645393d311c7fbc5e8c2e5034f10a4e66b47c9273d4dbe5da2926fc3f2
 WORKDIR /app
 RUN \
   apt-get -y update && \
@@ -33,6 +37,7 @@ RUN \
     default-mysql-client \
     libmariadb3 \
     xmlsec1 \
+    git \
     # only required for the dbshell (used by the initializer job)
     postgresql-client \
     && \
@@ -40,10 +45,10 @@ RUN \
   rm -rf /var/lib/apt/lists && \
   true
 RUN ln -s libmariadb.so.3 /usr/lib/x86_64-linux-gnu/libmariadbclient.so.18
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip3 install --no-cache-dir --upgrade pip
 COPY --from=build /tmp/wheels /tmp/wheels
 COPY requirements.txt ./
-RUN pip install \
+RUN pip3 install \
 	--no-cache-dir \
 	--no-index \
         --find-links=/tmp/wheels \
@@ -93,6 +98,8 @@ RUN \
   chmod g=u /var/run && \
   chmod g=u media && \
   true
+USER root
+RUN chmod 0777 /app
 USER 1001
 ENV \
   DD_ADMIN_USER=admin \

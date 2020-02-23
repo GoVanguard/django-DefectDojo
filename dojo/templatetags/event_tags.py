@@ -33,9 +33,11 @@ def _process_field_attributes(field, attr, process):
 def subtract(value, arg):
     return value - arg
 
+
 @register.filter
 def modulo(num, val):
     return num % val
+
 
 @register.filter
 def addcss(field, attr):
@@ -70,6 +72,7 @@ def is_file(field):
     return isinstance(field.field.widget, forms.FileInput) or \
            isinstance(field, forms.ClearableFileInput)
 
+
 @register.filter
 def is_text(field):
     return isinstance(field.field.widget, forms.TextInput) or \
@@ -79,7 +82,7 @@ def is_text(field):
 @register.filter
 def sum_dict(d):
     total = 0
-    for key, value in d.items():
+    for key, value in list(d.items()):
         total += value
     return total
 

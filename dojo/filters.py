@@ -3,7 +3,6 @@ import collections
 from datetime import timedelta, datetime
 
 from auditlog.models import LogEntry
-from django import forms
 from django.contrib.auth.models import User
 from django.utils import six
 from django.utils.translation import ugettext_lazy as _
@@ -45,10 +44,6 @@ def get_earliest_finding():
 class DojoFilter(FilterSet):
     def __init__(self, *args, **kwargs):
         super(DojoFilter, self).__init__(*args, **kwargs)
-        page_size = forms.ChoiceField(
-            choices=((25, 25), (50, 50), (75, 75), (100, 100), (150, 150),),
-            required=False)
-        self.form.fields['page_size'] = page_size
 
 
 class DateRangeFilter(ChoiceFilter):
@@ -94,7 +89,7 @@ class DateRangeFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](qs, self.name)
+        return self.options[value][1](qs, self.field_name)
 
 
 class MitigatedDateRangeFilter(ChoiceFilter):
@@ -118,7 +113,7 @@ class MitigatedDateRangeFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](qs, self.name)
+        return self.options[value][1](qs, self.field_name)
 
 
 class ReportBooleanFilter(ChoiceFilter):
@@ -142,7 +137,7 @@ class ReportBooleanFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](qs, self.name)
+        return self.options[value][1](qs, self.field_name)
 
 
 class ReportRiskAcceptanceFilter(ChoiceFilter):
@@ -171,7 +166,7 @@ class ReportRiskAcceptanceFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](self, qs, self.name)
+        return self.options[value][1](self, qs, self.field_name)
 
 
 class MetricsDateRangeFilter(ChoiceFilter):
@@ -251,7 +246,7 @@ class MetricsDateRangeFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](self, qs, self.name)
+        return self.options[value][1](self, qs, self.field_name)
 
 
 class EngagementFilter(DojoFilter):
@@ -338,7 +333,7 @@ class OpenFindingFilter(DojoFilter):
         queryset=Product.objects.all(),
         label="Product")
     if get_system_setting('enable_jira'):
-        jira_issue = BooleanFilter(name='jira_issue',
+        jira_issue = BooleanFilter(field_name='jira_issue',
                                    lookup_expr='isnull',
                                    exclude=True,
                                    label='JIRA issue')
@@ -363,7 +358,7 @@ class OpenFindingFilter(DojoFilter):
                    'thread_id', 'notes', 'scanner_confidence', 'mitigated',
                    'numerical_severity', 'reporter', 'last_reviewed', 'line',
                    'duplicate_list', 'duplicate_finding', 'hash_code', 'images',
-                   'line_number', 'reviewers', 'mitigated_by', 'sourcefile']
+                   'line_number', 'reviewers', 'mitigated_by', 'sourcefile', 'jira_creation', 'jira_change']
 
     def __init__(self, *args, **kwargs):
         self.user = None
@@ -378,9 +373,9 @@ class OpenFindingFilter(DojoFilter):
         cwe = dict()
         cwe = dict([finding.cwe, finding.cwe]
                    for finding in self.queryset.distinct()
-                   if finding.cwe > 0 and finding.cwe not in cwe)
+                   if finding.cwe is not None and finding.cwe > 0 and finding.cwe not in cwe)
         cwe = collections.OrderedDict(sorted(cwe.items()))
-        self.form.fields['cwe'].choices = cwe.items()
+        self.form.fields['cwe'].choices = list(cwe.items())
         self.form.fields['severity'].choices = self.queryset.order_by(
             'numerical_severity'
         ).values_list('severity', 'severity').distinct()
@@ -450,7 +445,7 @@ class ClosedFindingFilter(DojoFilter):
                    'duplicate', 'thread_id', 'date', 'notes',
                    'numerical_severity', 'reporter', 'endpoints',
                    'last_reviewed', 'review_requested_by', 'defect_review_requested_by',
-                   'last_reviewed_by', 'created']
+                   'last_reviewed_by', 'created', 'jira_creation', 'jira_change']
 
     def __init__(self, *args, **kwargs):
         super(ClosedFindingFilter, self).__init__(*args, **kwargs)
@@ -459,7 +454,7 @@ class ClosedFindingFilter(DojoFilter):
                    for finding in self.queryset.distinct()
                    if finding.cwe > 0 and finding.cwe not in cwe)
         cwe = collections.OrderedDict(sorted(cwe.items()))
-        self.form.fields['cwe'].choices = cwe.items()
+        self.form.fields['cwe'].choices = list(cwe.items())
         self.form.fields['severity'].choices = self.queryset.order_by(
             'numerical_severity'
         ).values_list('severity', 'severity').distinct()
@@ -519,7 +514,7 @@ class AcceptedFindingFilter(DojoFilter):
                    'active', 'verified', 'out_of_scope', 'false_p',
                    'duplicate', 'thread_id', 'mitigated', 'notes',
                    'numerical_severity', 'reporter', 'endpoints',
-                   'last_reviewed', 'o']
+                   'last_reviewed', 'o', 'jira_creation', 'jira_change']
 
     def __init__(self, *args, **kwargs):
         super(AcceptedFindingFilter, self).__init__(*args, **kwargs)
@@ -528,7 +523,7 @@ class AcceptedFindingFilter(DojoFilter):
                    for finding in self.queryset.distinct()
                    if finding.cwe > 0 and finding.cwe not in cwe)
         cwe = collections.OrderedDict(sorted(cwe.items()))
-        self.form.fields['cwe'].choices = cwe.items()
+        self.form.fields['cwe'].choices = list(cwe.items())
         self.form.fields['severity'].choices = self.queryset.order_by(
             'numerical_severity'
         ).values_list('severity', 'severity').distinct()
@@ -581,7 +576,7 @@ class ProductFindingFilter(DojoFilter):
                    'active', 'verified', 'out_of_scope', 'false_p',
                    'duplicate_list', 'duplicate_finding', 'thread_id', 'mitigated', 'notes',
                    'numerical_severity', 'reporter', 'endpoints',
-                   'last_reviewed']
+                   'last_reviewed', 'jira_creation', 'jira_change']
 
     def __init__(self, *args, **kwargs):
         super(ProductFindingFilter, self).__init__(*args, **kwargs)
@@ -590,7 +585,7 @@ class ProductFindingFilter(DojoFilter):
                    for finding in self.queryset.distinct()
                    if finding.cwe > 0 and finding.cwe not in cwe)
         cwe = collections.OrderedDict(sorted(cwe.items()))
-        self.form.fields['cwe'].choices = cwe.items()
+        self.form.fields['cwe'].choices = list(cwe.items())
         self.form.fields['severity'].choices = self.queryset.order_by(
             'numerical_severity'
         ).values_list('severity', 'severity').distinct()
@@ -625,21 +620,21 @@ class TemplateFindingFilter(DojoFilter):
         cwe = dict()
         cwe = dict([finding.cwe, finding.cwe]
                    for finding in self.queryset.distinct()
-                   if finding.cwe > 0 and finding.cwe not in cwe)
+                   if finding.cwe is not None and finding.cwe > 0 and finding.cwe not in cwe)
         cwe = collections.OrderedDict(sorted(cwe.items()))
-        self.form.fields['cwe'].choices = cwe.items()
+        self.form.fields['cwe'].choices = list(cwe.items())
 
-        self.form.fields['severity'].choices = ((u'Critical', u'Critical'),
-                                                (u'High', u'High'),
-                                                (u'Medium', u'Medium'),
-                                                (u'Low', u'Low'),
-                                                (u'Info', u'Info'))
+        self.form.fields['severity'].choices = (('Critical', 'Critical'),
+                                                ('High', 'High'),
+                                                ('Medium', 'Medium'),
+                                                ('Low', 'Low'),
+                                                ('Info', 'Info'))
 
-        self.form.fields['numerical_severity'].choices = ((u'S0', u'S0'),
-                                                          (u'S1', u'S1'),
-                                                          (u'S2', u'S2'),
-                                                          (u'S3', u'S3'),
-                                                          (u'S4', u'S4'))
+        self.form.fields['numerical_severity'].choices = (('S0', 'S0'),
+                                                          ('S1', 'S1'),
+                                                          ('S2', 'S2'),
+                                                          ('S3', 'S3'),
+                                                          ('S4', 'S4'))
 
 
 class FindingStatusFilter(ChoiceFilter):
@@ -685,7 +680,7 @@ class FindingStatusFilter(ChoiceFilter):
             value = int(value)
         except (ValueError, TypeError):
             value = ''
-        return self.options[value][1](self, qs, self.name)
+        return self.options[value][1](self, qs, self.field_name)
 
 
 class MetricsFindingFilter(FilterSet):
@@ -720,7 +715,9 @@ class MetricsFindingFilter(FilterSet):
                    'last_reviewed_by',
                    'images',
                    'endpoints',
-                   'is_template']
+                   'is_template',
+                   'jira_creation',
+                   'jira_change']
 
 
 class EndpointFilter(DojoFilter):
@@ -731,6 +728,7 @@ class EndpointFilter(DojoFilter):
     path = CharFilter(lookup_expr='icontains')
     query = CharFilter(lookup_expr='icontains')
     fragment = CharFilter(lookup_expr='icontains')
+    remediated = CharFilter(lookup_expr='icontains')
 
     o = OrderingFilter(
         # tuple-mapping retains order
@@ -751,7 +749,7 @@ class EndpointFilter(DojoFilter):
 
     class Meta:
         model = Endpoint
-        exclude = []
+        exclude = ['remediated']
 
 
 class EndpointReportFilter(DojoFilter):
@@ -784,7 +782,7 @@ class ReportFindingFilter(DojoFilter):
         exclude = ['date', 'cwe', 'url', 'description', 'mitigation', 'impact',
                    'endpoint', 'references', 'test', 'is_template',
                    'thread_id', 'notes', 'endpoints',
-                   'numerical_severity', 'reporter', 'last_reviewed', 'images']
+                   'numerical_severity', 'reporter', 'last_reviewed', 'images', 'jira_creation', 'jira_change']
 
 
 class ReportAuthedFindingFilter(DojoFilter):
@@ -828,7 +826,7 @@ class ReportAuthedFindingFilter(DojoFilter):
         exclude = ['date', 'cwe', 'url', 'description', 'mitigation', 'impact',
                    'endpoint', 'references', 'test', 'is_template',
                    'thread_id', 'notes', 'endpoints',
-                   'numerical_severity', 'reporter', 'last_reviewed']
+                   'numerical_severity', 'reporter', 'last_reviewed', 'jira_creation', 'jira_change']
 
 
 class UserFilter(DojoFilter):
@@ -898,14 +896,14 @@ class ReportFilter(DojoFilter):
             [report.type, report.type] for report in self.queryset.distinct()
             if report.type is not None)
         type = collections.OrderedDict(sorted(type.items()))
-        self.form.fields['type'].choices = type.items()
+        self.form.fields['type'].choices = list(type.items())
 
         status = dict()
         status = dict(
             [report.status, report.status] for report in
             self.queryset.distinct() if report.status is not None)
         status = collections.OrderedDict(sorted(status.items()))
-        self.form.fields['status'].choices = status.items()
+        self.form.fields['status'].choices = list(status.items())
 
 
 class EngineerFilter(DojoFilter):
