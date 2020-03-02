@@ -311,6 +311,8 @@ class OpenVASUploadCsvParser(object):
             return
 
         content = filename.read()
+        if type(content) is bytes:
+            content = content.decode('utf-8')
 
         row_number = 0
         reader = csv.reader(io.StringIO(content), delimiter=',', quotechar='"')
