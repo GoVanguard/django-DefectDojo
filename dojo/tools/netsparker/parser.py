@@ -35,7 +35,7 @@ class NetsparkerParser(object):
             status = ''
 
             title = item["Name"]
-            findingdetail = cleantags(item["Description"])
+            findingdetail = cleantags(item["Description"]) + cleantags(item["Impact"])
             cwe = item["Classification"]["Cwe"]
             sev = item["Severity"]
             if sev not in ['Info', 'Low', 'Medium', 'High', 'Critical']:
@@ -43,7 +43,7 @@ class NetsparkerParser(object):
             mitigation = cleantags(item["RemedialProcedure"])
             references = cleantags(item["RemedyReferences"])
             url = item["Url"]
-            impact = cleantags(item["Impact"])
+            impact = item["Severity"]
             dupe_key = title + item["Name"] + item["Url"]
 
             if dupe_key in dupes:
