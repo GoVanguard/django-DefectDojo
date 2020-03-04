@@ -38,30 +38,37 @@ class WapitiXMLParser(object):
         if 'report' not in root.tag:
             raise NamespaceErr("This doesn't seem to be a valid Wapiti xml file.")
 
-        for result in root.findall('report/results/result'):
-            family = result.find('nvt/family').text
-            # check if vulnerability found in family then proceed.
-            if "vulnerability" in family:
-                # get host
-                host = result.find('host').text
-                # get title
-                title = result.find('nvt/name').text
-                # get cve
-                cve = result.find('nvt/cve').text
-                # get numerical severity.
-                num_severity = result.find('nvt/risk_factor').text
-                severityfilter = Severityfilter()
-                severityfilter.eval_column(num_severity)
-                severity = severityfilter.severity
-                # get reference
-                reference = result.find('nvt/xref').text
-                # get description and encode to utf-8.
-                description = (result.find('description').text)
-                mitigation = "N/A"
-                impact = "N/A"
+        for child in root:
+        # host is now separate from vulnerability elements
+        if child.tag == 'report_infos':
+            for item in child:
+                for v in item.attrib.values():
+                    if v == 'target':
+                        # get host
+                        host = item.text
+        # parsing the vulnerabilities
+        if child.tag == 'vulnerabilities':
+            for item in child:
+                # get risk title
+                title = item.attrib['name']
+                for el in item:
+                    # get description
+                    if el.tag == 'description':
+                        description = el.text
+                    # get mitigation
+                    if el.tag == 'solution':
+                        mitigation = el.text
+                    # get references
+                    if el.tag == 'references':
+                        reference = el.text
+                # Wapiti XML reports have none of this information below
+                cve = 'N/A'
+                severity = 'N/A'
+                num_severity = 'N/A'
+                impact = 'N/A'
                 # make dupe hash key
                 dupe_key = hashlib.md5(str(description + title + severity).encode('utf-8')).hexdigest()
-                # check if dupes are present.
+                # check if dupes are present
                 if dupe_key in self.dupes:
                     finding = self.dupes[dupe_key]
                     if finding.description:
@@ -70,7 +77,7 @@ class WapitiXMLParser(object):
                     self.dupes[dupe_key] = finding
                 else:
                     self.dupes[dupe_key] = True
-
+                    
                     finding = Finding(title=title,
                                     test=test,
                                     active=False,
@@ -78,13 +85,11 @@ class WapitiXMLParser(object):
                                     cve=cve,
                                     description=description,
                                     severity=severity,
-                                    numerical_severity=Finding.get_numerical_severity(
-                                        severity),
+                                    numerical_severity=num_severity,
                                     mitigation=mitigation,
                                     impact=impact,
                                     references=reference,
                                     dynamic_finding=True)
-
                     self.dupes[dupe_key] = finding
                     self.process_endpoints(finding, host)
 
